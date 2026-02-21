@@ -5,15 +5,15 @@
 ### Full-Stack Learning Management System — Alternative Presentation Platform
 
 ![Status](https://img.shields.io/badge/Status-In%20Progress-yellow)
-![Module](https://img.shields.io/badge/Module-1%20Complete-green)
+![Module](https://img.shields.io/badge/Module-3%20In%20Work-green)
 ![Stack](https://img.shields.io/badge/Stack-React%20%7C%20Node.js%20%7C%20Azure%20SQL-blue)
 ![Budget](https://img.shields.io/badge/Azure%20Budget-%24100%20Student%20Credit-orange)
 
 **Course:** Web Systems II – 521F SP26 ON  
 **Developer:** Jose A. Melendez  
 **Instructor:** Ronald Eaglin  
-**Version:** 1.0 – Initial Draft  
-**Last Updated:** 02/17/2026
+**Version:** 3.0 – Assignment 5 Submission  
+**Last Updated:** 02/21/2026
 
 </div>
 
@@ -32,12 +32,20 @@
    - [Server-Side Architecture](#22-server-side-architecture)
 3. [Technology Stack](#3-technology-stack--programming-environment)
 4. [Development Environment Setup Log](#4-development-environment-setup-log)
-5. [UI/UX Design Documentation](#5-uiux-design-documentation)
-   - [Use Case Scenarios](#51-use-case-scenarios)
-   - [Task Analysis](#52-task-analysis)
-   - [UI Screen Designs](#53-ui-screen-designs)
-   - [Cognitive Walkthrough & Heuristic Evaluation](#54-cognitive-walkthrough--heuristic-evaluation)
-6. [Appendix](#6-appendix)
+5. [Development Documentation Standards](#5-development-documentation-standards)
+   - [Purpose and Overview](#51-purpose-and-overview)
+   - [Complete Stack Elements & Connectors](#52-complete-stack-elements--connectors)
+   - [Language and Coding Standards](#53-language-and-coding-standards)
+   - [Code Conventions](#54-code-conventions)
+   - [Project Directory Structure](#55-project-directory-structure)
+   - [Code Modules and Object Overview](#56-code-modules-and-object-overview)
+   - [Platform & Hosting — Developer Continuity Guide](#57-platform--hosting--developer-continuity-guide)
+6. [UI/UX Design Documentation](#6-uiux-design-documentation)
+   - [Use Case Scenarios](#61-use-case-scenarios)
+   - [Task Analysis](#62-task-analysis)
+   - [UI Screen Designs](#63-ui-screen-designs)
+   - [Cognitive Walkthrough & Heuristic Evaluation](#64-cognitive-walkthrough--heuristic-evaluation)
+7. [Appendix](#7-appendix)
 
 ---
 
@@ -390,13 +398,497 @@ Follow this order exactly — each step depends on the previous one.
 
 ---
 
-## 5. UI/UX Design Documentation
+## 5. Development Documentation Standards
+
+> This section fulfils the Assignment 5 documentation requirements. Cross-references to earlier sections are noted where content already exists. A skilled developer should be able to clone the repository and resume work using only this document.
+
+---
+
+### 5.1 Purpose and Overview
+
+> Full narrative is in **[Section 1 — Executive Summary & Project Overview](#1-executive-summary--project-overview)**. The summary below is provided for quick reference.
+
+This project is a ground-up, full-stack **Learning Management System (LMS)** built as a modern alternative to the existing Daytona College class module format. It serves three user roles — **Admin**, **Instructor**, and **Student** — and supports the complete lifecycle of an online course: content creation, student enrollment, lesson delivery, assignment submission, quiz-taking, grading, and progress tracking.
+
+The primary course used as the working example throughout all design and documentation is **Web Systems II – 521F SP26 ON**, taught by Ronald Eaglin, Spring 2026 (online delivery).
+
+| Item | Value |
+|---|---|
+| Project Name | Daytona College Class Module LMS |
+| Developer | Jose A. Melendez |
+| Course Context | Web Systems II – 521F SP26 ON |
+| Repository | https://github.com/Melendja/daytona-lms |
+| Deployment Target | Microsoft Azure (App Service + Azure SQL) |
+| Target Users | Students, Instructors, Admins at Daytona College |
+
+---
+
+### 5.2 Complete Stack Elements & Connectors
+
+#### Full Stack Diagram
+
+```
+┌──────────────────────────┐    HTTPS / REST JSON     ┌───────────────────────────┐
+│   FRONTEND               │ ──── Axios + JWT ──────► │   BACKEND                 │
+│   React 18 (Vite 5)      │ ◄─── JSON Response ───── │   Express.js 4  (Node 20) │
+│   Bootstrap 5.3          │                           │   cors middleware          │
+│   React Router v6        │                           │   express-validator        │
+│   React Context API      │                           │   jsonwebtoken + bcryptjs  │
+└──────────┬───────────────┘                           └──────────┬────────────────┘
+           │                                                      │
+           │  localStorage                              Prisma Client (ORM)
+           │  (JWT token)                               TCP / TLS port 1433
+           │                                                      │
+           │                                                      ▼
+           │                                           ┌──────────────────────────┐
+           │                                           │   DATABASE               │
+           │                                           │   Azure SQL (MS SQL      │
+           │                                           │   Server) — 11 tables    │
+           │                                           └──────────────────────────┘
+           │
+    ┌──────▼──────────────────────────────────────────────────────────┐
+    │  CI/CD                                                           │
+    │  GitHub repo ──► GitHub Actions (on push to main)               │
+    │     └── npm install + npm run build + deploy to Azure App Service│
+    └──────────────────────────────────────────────────────────────────┘
+```
+
+#### Connector Reference Table
+
+| From | Connector / Protocol | To | Config / Notes |
+|---|---|---|---|
+| React (browser) | HTTP/HTTPS + Axios | Express API | Base URL set in `client/src/services/api.js`; JWT attached via Axios interceptor |
+| Axios interceptor | `Authorization: Bearer <token>` header | Express `verifyToken` middleware | Token stored in `localStorage` on login |
+| Express routes | Prisma Client (auto-generated) | Azure SQL Database | `DATABASE_URL` in `.env`; connection pool managed by Prisma |
+| Prisma Client | TCP/TLS port 1433 | Azure SQL / SQL Server Express | Encrypt=true in production connection string |
+| GitHub (main branch) | GitHub Actions workflow `.yml` | Azure App Service | Deployment credentials stored as GitHub Secrets |
+| Express (production) | `express.static()` | React `/dist` build output | Client is built first; Express serves static files in production |
+| Express | `cors` npm package | Browser | Allows `http://localhost:5173` in dev; locked to Azure domain in prod |
+| `.env` file | `dotenv` npm package | Express config | `require('dotenv').config()` at top of `server/index.js` |
+| `jsonwebtoken` | RSA/HMAC signing | JWT token | `JWT_SECRET` env var; HS256 algorithm; 8-hour expiry |
+| `bcryptjs` | One-way hash | Users table `passwordHash` | Salt rounds = 12 |
+
+#### Required Environment Variables
+
+| Variable | Example Value | Used By |
+|---|---|---|
+| `DATABASE_URL` | `sqlserver://HOST:1433;database=daytona_lms;user=SA;password=P@ss;encrypt=true` | Prisma |
+| `JWT_SECRET` | `your-256-bit-random-string` | jsonwebtoken |
+| `NODE_ENV` | `development` or `production` | Express |
+| `PORT` | `3001` | Express |
+
+> **Never commit `.env` to Git.** Copy `.env.example` and fill in real values locally. Azure App Service Application Settings replace `.env` in production.
+
+---
+
+### 5.3 Language and Coding Standards
+
+#### Primary Language — JavaScript (ES2022+)
+
+The entire application — frontend, backend, and tooling — is written in **JavaScript ES2022+**. A single language across the full stack minimises context-switching and allows shared utility logic.
+
+| Layer | Language / Syntax | Runtime |
+|---|---|---|
+| Frontend | JavaScript ES2022+ / JSX | Browser (compiled by Vite) |
+| Backend | JavaScript ES2022+ (CommonJS modules) | Node.js 20 LTS |
+| Database schema | Prisma Schema Language (PSL) | Prisma CLI |
+| CI/CD pipeline | YAML | GitHub Actions |
+
+#### Key Language Features Used
+
+| Feature | Usage |
+|---|---|
+| `async` / `await` | All API calls and database queries — never raw `.then()` chains |
+| Arrow functions | All callbacks and short functions |
+| Destructuring | Props, imports, API responses (`const { data } = await api.get(...)`) |
+| Template literals | Dynamic strings, SQL-equivalent query building |
+| Optional chaining `?.` | Safe navigation in React components |
+| Nullish coalescing `??` | Default values in components and controllers |
+| Spread operator `...` | Object merging in state updates and API responses |
+| ES Modules (frontend) | `import` / `export` in all React files via Vite |
+| CommonJS (backend) | `require` / `module.exports` in Express files (Node default) |
+
+#### Official Style Reference Links
+
+| Resource | URL | Applied To |
+|---|---|---|
+| Airbnb JavaScript Style Guide | https://airbnb.io/javascript/ | All JS files |
+| React Official Docs — Best Practices | https://react.dev/learn | All `.jsx` files |
+| Express.js Guide | https://expressjs.com/en/guide/routing.html | All route/controller files |
+| Prisma Naming Conventions | https://pris.ly/d/naming-conventions | `schema.prisma` |
+| Node.js Best Practices | https://github.com/goldbergyoni/nodebestpractices | `server/` directory |
+
+---
+
+### 5.4 Code Conventions
+
+These conventions are enforced via **ESLint** + **Prettier** (VS Code extensions). The `.eslintrc` and `.prettierrc` config files are committed to the repository root.
+
+#### Naming Conventions
+
+| Type | Convention | Example |
+|---|---|---|
+| Variables | `camelCase` | `studentId`, `courseTitle`, `isEnrolled` |
+| Functions | `camelCase` | `getEnrolledCourses()`, `submitAssignment()` |
+| React Components | `PascalCase` | `StudentDashboard`, `CourseCard`, `QuizInterface` |
+| Constants | `SCREAMING_SNAKE_CASE` | `JWT_EXPIRY`, `MAX_FILE_SIZE_MB` |
+| CSS classes | `kebab-case` (Bootstrap) | `course-card`, `progress-bar-container` |
+| Files — React | `PascalCase.jsx` | `StudentDashboard.jsx`, `QuizInterface.jsx` |
+| Files — JS utilities | `camelCase.js` | `authService.js`, `jwtHelpers.js` |
+| Files — Routes | `camelCase + Routes.js` | `courseRoutes.js`, `adminRoutes.js` |
+| Files — Controllers | `camelCase + Controller.js` | `courseController.js` |
+| Database tables | `PascalCase` (Prisma default) | `Users`, `Courses`, `QuizAttempts` |
+| Database columns | `camelCase` (Prisma default) | `userId`, `passwordHash`, `isPublished` |
+
+#### Boolean Naming
+
+Prefix all boolean variables and props with `is`, `has`, or `can`:
+
+```js
+// Correct
+const isEnrolled = true;
+const hasSubmitted = false;
+const canEdit = user.role === 'INSTRUCTOR';
+
+// Incorrect
+const enrolled = true;
+const submitted = false;
+```
+
+#### Comment Standards
+
+All exported functions use **JSDoc** format:
+
+```js
+/**
+ * Verifies a JWT token and attaches decoded user to req.user
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @param {Function} next - Express next middleware
+ */
+const verifyToken = (req, res, next) => { ... };
+```
+
+#### React Component Rules
+
+- One component per file; default export for components
+- Named exports for hooks, utilities, and constants
+- Props destructured in function signature: `function CourseCard({ title, progress, onSelect })`
+- No inline styles — use Bootstrap classes; custom CSS in component-scoped `.module.css` file
+- `useEffect` cleanup functions included wherever subscriptions or timers are used
+
+#### API Response Format (Backend)
+
+All API responses follow a consistent envelope:
+
+```js
+// Success
+res.status(200).json({ success: true, data: result });
+
+// Error
+res.status(400).json({ success: false, message: "Validation failed", errors: [...] });
+```
+
+#### Git Commit Convention
+
+Format: `type(scope): short description`
+
+| Type | When to use |
+|---|---|
+| `feat` | New feature added |
+| `fix` | Bug fix |
+| `docs` | Documentation changes only |
+| `style` | Formatting, no logic change |
+| `refactor` | Code change that is neither fix nor feature |
+| `test` | Adding or updating tests |
+| `chore` | Build process, dependency updates |
+
+Examples: `feat(quiz): add timer auto-submit on expiry` · `fix(auth): clear password field on failed login`
+
+---
+
+### 5.5 Project Directory Structure
+
+```
+daytona-lms/                         ← Repository root
+├── client/                          ← React frontend (Vite)
+│   ├── public/                      ← Static public assets
+│   ├── src/
+│   │   ├── assets/                  ← Images, icons, fonts
+│   │   ├── components/
+│   │   │   ├── common/              ← Navbar, Footer, Spinner, ProtectedRoute
+│   │   │   ├── student/             ← StudentDashboard, CourseCard, ProgressBar
+│   │   │   ├── instructor/          ← InstructorDashboard, CourseEditor, GradeForm
+│   │   │   └── admin/               ← AdminDashboard, UserTable, EnrollForm
+│   │   ├── context/
+│   │   │   └── AuthContext.jsx      ← JWT state, login(), logout(), user object
+│   │   ├── hooks/
+│   │   │   └── useAuth.js           ← Custom hook wrapping AuthContext
+│   │   ├── pages/
+│   │   │   ├── auth/                ← LoginPage.jsx, RegisterPage.jsx
+│   │   │   ├── student/             ← CoursePage.jsx, QuizPage.jsx, GradesPage.jsx
+│   │   │   ├── instructor/          ← ContentEditorPage.jsx, SubmissionsPage.jsx
+│   │   │   └── admin/               ← UsersPage.jsx, EnrollmentsPage.jsx
+│   │   ├── services/
+│   │   │   ├── api.js               ← Axios instance; JWT interceptor attached here
+│   │   │   ├── authService.js       ← login(), register()
+│   │   │   ├── courseService.js     ← getCourses(), createCourse(), updateCourse()
+│   │   │   ├── moduleService.js     ← getModules(), createModule()
+│   │   │   ├── lessonService.js     ← getLessons(), markComplete()
+│   │   │   ├── assignmentService.js ← getAssignment(), submitAssignment()
+│   │   │   └── quizService.js       ← getQuiz(), submitQuizAttempt()
+│   │   ├── utils/
+│   │   │   └── helpers.js           ← formatDate(), calcProgress(), truncate()
+│   │   ├── App.jsx                  ← React Router setup; role-gated routes
+│   │   └── main.jsx                 ← Vite entry; renders <App /> into #root
+│   ├── index.html                   ← HTML shell (Vite injects bundle here)
+│   └── vite.config.js               ← Proxy: /api → localhost:3001 in dev
+│
+├── server/                          ← Express.js backend
+│   ├── controllers/
+│   │   ├── authController.js        ← register(), login()
+│   │   ├── courseController.js      ← CRUD for Courses table
+│   │   ├── moduleController.js      ← CRUD for Modules table
+│   │   ├── lessonController.js      ← CRUD + markComplete() for Lessons
+│   │   ├── assignmentController.js  ← CRUD for Assignments + submit()
+│   │   ├── submissionController.js  ← gradeSubmission()
+│   │   ├── quizController.js        ← CRUD for Quizzes + attemptQuiz()
+│   │   └── adminController.js       ← User management + enrollStudent()
+│   ├── middleware/
+│   │   ├── verifyToken.js           ← Validates JWT; attaches req.user
+│   │   ├── requireRole.js           ← Role gate: requireRole('INSTRUCTOR')
+│   │   └── validate.js              ← express-validator error aggregator
+│   ├── routes/
+│   │   ├── authRoutes.js            ← POST /api/auth/register, /login
+│   │   ├── courseRoutes.js          ← CRUD /api/courses
+│   │   ├── moduleRoutes.js          ← CRUD /api/courses/:id/modules
+│   │   ├── lessonRoutes.js          ← CRUD /api/modules/:id/lessons
+│   │   ├── assignmentRoutes.js      ← /api/assignments
+│   │   ├── submissionRoutes.js      ← /api/submissions/:id/grade
+│   │   ├── quizRoutes.js            ← /api/quizzes
+│   │   └── adminRoutes.js           ← /api/admin/users, /api/enrollments
+│   ├── utils/
+│   │   └── jwtHelpers.js            ← signToken(), verifyTokenUtil()
+│   └── index.js                     ← App entry: mounts routes, serves /dist
+│
+├── prisma/
+│   ├── schema.prisma                ← 11-table schema (source of truth for DB)
+│   ├── migrations/                  ← Auto-generated SQL migration files
+│   └── seed.js                      ← Seeds: 1 Admin, 1 Instructor, 3 Students,
+│                                       1 Course (Web Systems II), 2 Modules,
+│                                       4 Lessons, 1 Assignment, 1 Quiz
+│
+├── .env                             ← Local secrets — NOT committed to Git
+├── .env.example                     ← Template — IS committed; shows required keys
+├── .gitignore                       ← Excludes: node_modules, .env, /dist, *.log
+├── package.json                     ← Root scripts: dev, build, start, seed
+└── README.md                        ← This file — full project documentation
+```
+
+#### Root `package.json` Scripts
+
+| Script | Command | Purpose |
+|---|---|---|
+| `npm run dev` | `concurrently "node server/index.js" "vite --config client/vite.config.js"` | Start both Express (3001) and React (5173) simultaneously |
+| `npm run build` | `cd client && npm run build` | Build React for production into `client/dist` |
+| `npm start` | `node server/index.js` | Production — Express serves `/dist` as static files |
+| `npm run seed` | `npx prisma db seed` | Populate DB with demo data |
+| `npm run migrate` | `npx prisma migrate dev` | Apply schema changes locally |
+
+---
+
+### 5.6 Code Modules and Object Overview
+
+#### Object / Model Mapping
+
+Each Prisma model corresponds to a server-side controller, a set of API routes, and one or more React components that consume it.
+
+| Prisma Model | Controller | API Routes File | Primary React Component(s) | Context / State |
+|---|---|---|---|---|
+| `User` | `authController.js` | `authRoutes.js` | `LoginPage`, `RegisterPage` | `AuthContext` — `user`, `token` |
+| `Course` | `courseController.js` | `courseRoutes.js` | `StudentDashboard`, `CourseCard`, `InstructorDashboard` | `courseService.js` |
+| `Enrollment` | `adminController.js` | `adminRoutes.js` | `EnrollForm`, `AdminDashboard` | Local state in `UsersPage` |
+| `Module` | `moduleController.js` | `moduleRoutes.js` | `ModuleTree`, `ContentEditorPage` | Module array in `CoursePage` |
+| `Lesson` | `lessonController.js` | `lessonRoutes.js` | `LessonView`, `ContentEditorPage` | Lesson state in `CoursePage` |
+| `Assignment` | `assignmentController.js` | `assignmentRoutes.js` | `AssignmentDetail`, `SubmissionEditor` | Assignment state in `CoursePage` |
+| `Submission` | `submissionController.js` | `submissionRoutes.js` | `GradeForm`, `SubmissionsPage` | Submission state in `SubmissionsPage` |
+| `Quiz` | `quizController.js` | `quizRoutes.js` | `QuizInterface`, `QuizBuilder` | `quizState` in `QuizPage` |
+| `QuizQuestion` | `quizController.js` (nested) | `quizRoutes.js` | `QuizInterface` (renders each question) | `quizState.questions[]` |
+| `QuizAttempt` | `quizController.js` | `quizRoutes.js` | `QuizResults` | `quizState.attempt` |
+| `LessonProgress` | `lessonController.js` | `lessonRoutes.js` | `ProgressBar`, `ModuleTree` (checkmarks) | Progress in `CoursePage` |
+
+#### JWT Payload Object
+
+The JWT payload (attached to `req.user` after `verifyToken` middleware) contains:
+
+```js
+{
+  userId: 7,
+  email: "jose@email.com",
+  role: "STUDENT",      // "ADMIN" | "INSTRUCTOR" | "STUDENT"
+  firstName: "Jose",
+  lastName: "Melendez",
+  iat: 1708300000,       // issued at (Unix timestamp)
+  exp: 1708328800        // expires at (8 hours later)
+}
+```
+
+#### Prisma Client Usage Pattern (all controllers)
+
+```js
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
+
+// Example: get all courses for a student
+const getCourses = async (req, res) => {
+  try {
+    const courses = await prisma.course.findMany({
+      where: { enrollments: { some: { studentId: req.user.userId } } },
+      include: { modules: true }
+    });
+    res.json({ success: true, data: courses });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+```
+
+#### ProtectedRoute Component Pattern (React)
+
+All role-gated pages are wrapped in a `ProtectedRoute` component that checks the JWT role:
+
+```jsx
+// App.jsx
+<Route path="/instructor" element={
+  <ProtectedRoute allowedRoles={['INSTRUCTOR', 'ADMIN']}>
+    <InstructorDashboard />
+  </ProtectedRoute>
+} />
+```
+
+---
+
+### 5.7 Platform & Hosting — Developer Continuity Guide
+
+> A developer with Node.js and Git experience should be able to have this project running locally in under 30 minutes using these steps. Azure deployment should take approximately 1 additional hour.
+
+#### Prerequisites
+
+| Tool | Version | Install URL |
+|---|---|---|
+| Node.js | 20 LTS | https://nodejs.org |
+| npm | Included with Node | — |
+| Git | 2.x | https://git-scm.com |
+| VS Code | Latest | https://code.visualstudio.com |
+| Azure Data Studio | Latest | https://aka.ms/azuredatastudio |
+| SQL Server Express OR Docker | 2022 | https://aka.ms/sqlserver-express OR https://docker.com |
+
+#### Local Setup — Step by Step
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/Melendja/daytona-lms.git
+cd daytona-lms
+
+# 2. Install backend dependencies
+npm install
+
+# 3. Install frontend dependencies
+cd client && npm install && cd ..
+
+# 4. Create your environment file
+cp .env.example .env
+# Edit .env and fill in: DATABASE_URL, JWT_SECRET, PORT=3001, NODE_ENV=development
+
+# 5. Start local SQL Server (Docker option)
+docker run -e "ACCEPT_EULA=Y" -e "SA_PASSWORD=YourStrong@Password"   -p 1433:1433 mcr.microsoft.com/mssql/server:2022-latest
+
+# 6. Run Prisma migrations (creates all 11 tables)
+npx prisma migrate dev --name init
+
+# 7. Seed the database with demo data
+npx prisma db seed
+
+# 8. Start the development server (Express + React simultaneously)
+npm run dev
+# Express API: http://localhost:3001
+# React app:   http://localhost:5173
+```
+
+#### Seed Data Accounts (after step 7)
+
+| Role | Email | Password |
+|---|---|---|
+| Admin | `admin@daytona.edu` | `Admin@1234` |
+| Instructor | `ronald@daytona.edu` | `Instructor@1234` |
+| Student | `jose@email.com` | `Student@1234` |
+
+#### Azure Deployment — Step by Step
+
+```bash
+# 1. Create Azure Resource Group
+az group create --name daytona-lms-rg --location eastus
+
+# 2. Create Azure SQL Server + Database
+az sql server create --name daytona-lms-sql --resource-group daytona-lms-rg   --location eastus --admin-user sqladmin --admin-password YourStrong@Password
+az sql db create --resource-group daytona-lms-rg --server daytona-lms-sql   --name daytona_lms --service-objective Basic
+
+# 3. Create Azure App Service
+az appservice plan create --name daytona-lms-plan --resource-group daytona-lms-rg   --sku B1 --is-linux
+az webapp create --resource-group daytona-lms-rg --plan daytona-lms-plan   --name daytona-lms-app --runtime "NODE:20-lts"
+
+# 4. Set environment variables on App Service
+az webapp config appsettings set --resource-group daytona-lms-rg   --name daytona-lms-app --settings   DATABASE_URL="sqlserver://..." JWT_SECRET="..." NODE_ENV="production"
+
+# 5. Connect GitHub repo for auto-deploy
+# Azure Portal: App Service > Deployment Center > GitHub > main branch
+```
+
+#### GitHub Actions CI/CD (`.github/workflows/deploy.yml`)
+
+```yaml
+name: Deploy to Azure
+on:
+  push:
+    branches: [main]
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+      - run: npm install
+      - run: cd client && npm install && npm run build
+      - run: npx prisma migrate deploy
+      - uses: azure/webapps-deploy@v2
+        with:
+          app-name: daytona-lms-app
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+```
+
+#### Ongoing Maintenance Notes
+
+| Task | Command | Frequency |
+|---|---|---|
+| Apply new DB migrations | `npx prisma migrate deploy` | Each release |
+| Update Prisma client | `npx prisma generate` | After schema changes |
+| View DB in Azure Data Studio | Connect to Azure SQL endpoint | As needed |
+| View app logs | `az webapp log tail --name daytona-lms-app --resource-group daytona-lms-rg` | Debugging |
+| Rollback deployment | Git revert + push to main triggers new deploy | As needed |
+| Check Azure spend | Azure Portal > Cost Management | Monthly |
+
+
+---
+
+## 6. UI/UX Design Documentation
 
 > **Context:** All use cases, task analysis, and screen designs use **Web Systems II – 521F SP26 ON** as the working course example. This course runs Spring 2026 (online), taught by Ronald Eaglin, and is the direct audience for this LMS.
 
 ---
 
-### 5.1 Use Case Scenarios
+### 6.1 Use Case Scenarios
 
 Use cases capture the goals of each actor and how they interact with the system to achieve them. Six primary use cases are identified for the Web Systems II context.
 
@@ -497,7 +989,7 @@ Use cases capture the goals of each actor and how they interact with the system 
 
 ---
 
-### 5.2 Task Analysis
+### 6.2 Task Analysis
 
 Task analysis breaks down the complete lifecycle of a student through Web Systems II – 521F SP26 ON, identifying the steps, decisions, and system interactions at each phase.
 
@@ -720,7 +1212,7 @@ Student Dashboard
 
 ---
 
-### 5.3 UI Screen Designs
+### 6.3 UI Screen Designs
 
 All screens use Bootstrap 5 responsive layout. The navigation bar is persistent across all authenticated views. The course **Web Systems II – 521F SP26 ON** is used as the working example in all mockups.
 
@@ -1066,7 +1558,7 @@ All screens use Bootstrap 5 responsive layout. The navigation bar is persistent 
 
 ---
 
-### 5.4 Cognitive Walkthrough & Heuristic Evaluation
+### 6.4 Cognitive Walkthrough & Heuristic Evaluation
 
 Each screen is evaluated against **Nielsen's 10 Usability Heuristics** and reviewed via **Cognitive Walkthrough** (asking: will the user know what to do? will they know if they did it right?).
 
@@ -1285,9 +1777,9 @@ Each screen is evaluated against **Nielsen's 10 Usability Heuristics** and revie
 
 ---
 
-## 6. Appendix
+## 7. Appendix
 
-### 6.1 Glossary
+### 7.1 Glossary
 
 | Term | Definition |
 |---|---|
@@ -1304,7 +1796,7 @@ Each screen is evaluated against **Nielsen's 10 Usability Heuristics** and revie
 | Azure App Service | Microsoft Azure's fully managed platform for hosting web applications |
 | Azure SQL | Microsoft's fully managed cloud SQL Server database service |
 
-### 6.2 Key References and Resources
+### 7.2 Key References and Resources
 
 - [React Documentation](https://react.dev)
 - [Vite Documentation](https://vitejs.dev)
@@ -1318,19 +1810,19 @@ Each screen is evaluated against **Nielsen's 10 Usability Heuristics** and revie
 - [jsonwebtoken npm](https://npmjs.com/package/jsonwebtoken)
 - [bcryptjs npm](https://npmjs.com/package/bcryptjs)
 
-### 6.3 Database ER Diagram
+### 7.3 Database ER Diagram
 
 > ⚑ Attach ER diagram here. Recommended free tool: [dbdiagram.io](https://dbdiagram.io) — paste your Prisma schema directly and it generates the diagram automatically. Export as PNG and insert here in Module 2.
 
 _[ ER Diagram — to be added in Module 2 ]_
 
-### 6.4 Architecture Diagram
+### 7.4 Architecture Diagram
 
 > ⚑ Add a three-tier architecture diagram showing Client → Express API → Azure SQL. Recommended tools: [draw.io](https://draw.io) (free), Lucidchart, or Miro.
 
 _[ Architecture Diagram — to be added in Module 2 ]_
 
-### 6.5 Live Application URL
+### 7.5 Live Application URL
 
 > ⚑ Add the live Azure URL after deployment in Module 5.
 
@@ -1340,13 +1832,13 @@ _[ Architecture Diagram — to be added in Module 2 ]_
 | GitHub Repository | _[ Paste your repo URL here ]_ |
 | Deployment Date | _[ To be filled in ]_ |
 
-### 6.6 Revision History
+### 7.6 Revision History
 
 | Version | Date | Author | Changes |
 |:---:|:---:|---|---|
-| 1.0 | 02/17/2026 | Jose A. Melendez | Initial Module 1 submission – full documentation template completed with confirmed stack, architecture, DB design, and setup checklist |
-| 2.0 | _[Module 2]_ | Jose A. Melendez | Update with actual module deadlines, DB schema refinements, ER diagram |
-| 3.0 | _[Module 5]_ | Jose A. Melendez | Add live Azure URL, CI/CD configuration, deployment screenshots |
+| 1.0 | 02/17/2026 | Jose A. Melendez | Initial Module 1 submission – full documentation template, confirmed stack, architecture, DB design, and setup checklist |
+| 2.0 | 02/21/2026 | Jose A. Melendez | Assignment 4 – Added Section 6 UI/UX Design Documentation: Use Case Scenarios, Task Analysis, 10 Screen Designs, Cognitive Walkthrough & Heuristic Evaluation |
+| 3.0 | 02/21/2026 | Jose A. Melendez | Assignment 5 – Added Section 5 Development Documentation Standards: Purpose & Overview, Full Stack Elements & Connectors, Language & Coding Standards, Code Conventions, Directory Structure, Code Modules & Object Overview, Platform & Hosting Continuity Guide |
 
 ---
 
